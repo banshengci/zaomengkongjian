@@ -1,0 +1,139 @@
+name: Clients
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/clients.yml"
+      - "services/**"
+      - "apps/**"
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wkbin/zaomeng
+          path: upstream/zaomeng
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Assemble debug APK
+        working-directory: upstream/zaomeng/kmp
+        run: |
+          ./gradlew :app:androidApp:assembleDebug --no-daemon --stacktrace --console=plain
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          find upstream/zaomeng/kmp -name "*.apk" -print -exec cp {} dist/ \;
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/*.apk
+          if-no-files-found: error
+
+  desktop:
+    name: Desktop
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: desktop-windows
+          - os: ubuntu-latest
+            artifact: desktop-linux
+          - os: macos-latest
+            artifact: desktop-macos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wkbin/zaomeng
+          path: upstream/zaomeng
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Package desktop
+        working-directory: upstream/zaomeng/kmp
+        shell: bash
+        run: |
+          ./gradlew :app:desktopApp:packageDistributionForCurrentOS --no-daemon --stacktrace --console=plain || \
+          ./gradlew :app:desktopApp:packageUberJarForCurrentOS --no-daemon --stacktrace --console=plain
+      - name: Collect
+        shell: bash
+        run: |
+          mkdir -p dist
+          find upstream/zaomeng/kmp/app/desktopApp/build -type f \( -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.jar" \) -print -exec cp {} dist/ \; || true
+          ls -la dist || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*
+          if-no-files-found: error
+
+  ios-ipa:
+    name: iOS IPA (TrollStore)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wkbin/zaomeng
+          path: upstream/zaomeng
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build shared framework
+        working-directory: upstream/zaomeng/kmp
+        run: |
+          ./gradlew :app:shared:embedAndSignAppleFrameworkForXcode \
+            --no-daemon --stacktrace --console=plain \
+            -PXCODE_CONFIGURATION=Release \
+            -PXCODE_SDK_NAME=iphoneos \
+            -PXCODE_PLATFORM_NAME=iphoneos \
+            || ./gradlew :app:shared:linkReleaseFrameworkIosArm64 --no-daemon --stacktrace
+      - name: Xcode build unsigned .app
+        working-directory: upstream/zaomeng/kmp/iosApp
+        run: |
+          xcodebuild -project iosApp.xcodeproj -scheme iosApp \
+            -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+      - name: Package IPA (no signing, TrollStore)
+        run: |
+          set -e
+          APP=$(find upstream/zaomeng/kmp/iosApp -type d -name "Zaomeng.app" | head -1)
+          if [ -z "$APP" ]; then APP=$(find upstream/zaomeng/kmp -type d -name "*.app" | head -1); fi
+          echo "APP=$APP"
+          test -n "$APP"
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          mkdir -p dist
+          zip -ry dist/zaomeng-ios.ipa Payload
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-trollstore
+          path: dist/*.ipa
+          if-no-files-found: error

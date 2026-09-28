@@ -1,0 +1,81 @@
+name: Web
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/web.yml"
+      - "services/**"
+      - "apps/**"
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API tests
+    runs-on: ubuntu-latest
+    env:
+      DREAMSPACE_STORE: memory
+      DREAMSPACE_SYNC_DISTILL: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Test API
+        working-directory: services/api
+        run: |
+          source $HOME/.local/bin/env
+          uv sync --extra dev
+          uv run ruff check .
+          uv run pytest tests -q
+      - name: Clone zaomeng skill for contract tests
+        run: git clone --depth 1 https://github.com/wkbin/zaomeng zaomeng || true
+      - name: Contract tests with skill
+        working-directory: services/api
+        run: |
+          source $HOME/.local/bin/env
+          uv run pytest tests -q
+
+  web:
+    name: Web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build Next.js
+        working-directory: apps/web
+        run: |
+          npm ci || npm install
+          npx tsc --noEmit
+          npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-next-build
+          path: apps/web/.next
+          if-no-files-found: error
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: services/api
+          push: false
+          tags: dreamspace-api:ci
+      - name: Build Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          push: false
+          tags: dreamspace-web:ci

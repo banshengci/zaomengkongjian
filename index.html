@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>造梦空间 · 构建台</title>
+<style>
+  :root{
+    --bg:#0b0f16; --panel:#141b28; --ink:#e8eef8; --muted:#8fa0b8;
+    --ok:#3ecf8e; --warn:#f0b429; --bad:#f07178; --accent:#6ea8ff; --line:#243044;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.5}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:420px;margin:0 auto;padding:16px 14px 28px}
+  .brand{display:flex;align-items:center;gap:10px;margin:8px 0 14px}
+  .logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#3d7eff,#7b5cff);display:grid;place-items:center;font-weight:700}
+  .brand h1{font-size:1.15rem;margin:0}
+  .brand p{margin:0;color:var(--muted);font-size:.78rem}
+  .tabs{display:flex;gap:8px;margin:12px 0 16px}
+  .tab{flex:1;text-align:center;padding:10px 6px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:.9rem;cursor:pointer}
+  .tab.active{background:#1b2640;color:var(--ink);border-color:#35507a}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .title{font-weight:600}
+  .muted{color:var(--muted);font-size:.82rem}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:.75rem;border:1px solid var(--line)}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .ok .dot{background:var(--ok)} .warn .dot{background:var(--warn)} .bad .dot{background:var(--bad)} .idle .dot{background:#5a6b84}
+  .btn{display:block;width:100%;margin-top:10px;padding:12px 14px;border-radius:12px;border:none;font-weight:600;font-size:.95rem;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#0b1020}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .list{margin:0;padding:0;list-style:none}
+  .list li{padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;font-size:.9rem}
+  .list li:last-child{border-bottom:none}
+  .bar{height:8px;border-radius:99px;background:#1c2740;overflow:hidden;margin:8px 0}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#3d7eff,#7b5cff)}
+  .hero{background:linear-gradient(145deg,#172036,#121826 55%,#1a1430);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+  .hero h2{margin:0 0 6px;font-size:1.25rem}
+  .steps{counter-reset:s;margin:10px 0 0;padding:0;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:8px 0 8px 32px;font-size:.9rem}
+  .steps li:before{content:counter(s);position:absolute;left:0;top:8px;width:22px;height:22px;border-radius:8px;background:#243552;color:var(--accent);display:grid;place-items:center;font-size:.75rem;font-weight:700}
+  .hidden{display:none!important}
+  code{background:#0d1320;padding:2px 6px;border-radius:6px;font-size:.8rem}
+  footer{margin-top:18px;color:var(--muted);font-size:.75rem;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="logo">造</div>
+    <div>
+      <h1>造梦空间 · 构建台</h1>
+      <p>云端客户端产物 · 手机可装</p>
+    </div>
+  </div>
+
+  <div class="hero">
+    <h2>一键出安装包</h2>
+    <div class="muted">Android APK · Desktop · iOS IPA（TrollStore 免签名）</div>
+    <div class="bar"><i id="progress" style="width:18%"></i></div>
+    <div class="row">
+      <span class="chip ok"><span class="dot"></span>CI 已就绪</span>
+      <span class="muted" id="clock">—</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="builds">构建</button>
+    <button class="tab" data-tab="install">安装</button>
+    <button class="tab" data-tab="check">检查</button>
+  </div>
+
+  <section id="tab-builds">
+    <div class="card">
+      <div class="row">
+        <div class="title">Android APK</div>
+        <div class="chip ok"><span class="dot"></span>可构建</div>
+      </div>
+      <div class="muted">assembleDebug → artifact <code>android-apk</code></div>
+      <a class="btn primary" href="https://github.com/banshengci/zaomengkongjian/actions/workflows/clients.yml" target="_blank" rel="noreferrer">打开 Clients 流水线</a>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="title">Desktop</div>
+        <div class="chip ok"><span class="dot"></span>可构建</div>
+      </div>
+      <div class="muted">MSI / DMG / DEB（失败回退 Uber JAR）</div>
+      <ul class="list">
+        <li><span>Windows</span><span class="muted">desktop-windows</span></li>
+        <li><span>macOS</span><span class="muted">desktop-macos</span></li>
+        <li><span>Linux</span><span class="muted">desktop-linux</span></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="title">iOS IPA</div>
+        <div class="chip warn"><span class="dot"></span>TrollStore</div>
+      </div>
+      <div class="muted">免开发者账号、不上架。产物 <code>ios-ipa-trollstore</code></div>
+      <ul class="list">
+        <li><span>签名</span><span class="muted">CODE_SIGNING_ALLOWED=NO</span></li>
+        <li><span>打包</span><span class="muted">Payload → .ipa</span></li>
+        <li><span>设备</span><span class="muted">iPhone 14 · 巨魔</span></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="title">Web / API</div>
+        <div class="chip ok"><span class="dot"></span>可构建</div>
+      </div>
+      <div class="muted">pytest + tsc + Docker 镜像（不推送）</div>
+      <a class="btn ghost" href="https://github.com/banshengci/zaomengkongjian/actions/workflows/web.yml" target="_blank" rel="noreferrer">打开 Web 流水线</a>
+    </div>
+  </section>
+
+  <section id="tab-install" class="hidden">
+    <div class="card">
+      <div class="title">iPhone 14 · TrollStore</div>
+      <ol class="steps">
+        <li>Actions → Clients → 最近一次成功运行</li>
+        <li>下载 Artifacts：<code>ios-ipa-trollstore</code></li>
+        <li>把 IPA 传到手机（文件/网盘/隔空投送）</li>
+        <li>用 TrollStore 打开 IPA 安装</li>
+      </ol>
+      <p class="muted">无需 Apple ID、无需开发者证书、不上架 App Store。</p>
+      <a class="btn primary" href="https://github.com/banshengci/zaomengkongjian/actions/workflows/clients.yml" target="_blank" rel="noreferrer">去下载构建产物</a>
+    </div>
+    <div class="card">
+      <div class="title">Android</div>
+      <ol class="steps">
+        <li>下载 <code>android-apk</code></li>
+        <li>允许未知来源后安装</li>
+      </ol>
+    </div>
+    <div class="card">
+      <div class="title">Desktop</div>
+      <ol class="steps">
+        <li>下载对应系统 artifact</li>
+        <li>Windows 运行 MSI / macOS 挂载 DMG / Linux 装 DEB</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="tab-check" class="hidden">
+    <div class="card">
+      <div class="title">云端能力检查</div>
+      <ul class="list" id="checkList">
+        <li><span>仓库可访问</span><span class="chip idle" data-k="repo"><span class="dot"></span>检测中</span></li>
+        <li><span>Clients 工作流</span><span class="chip idle" data-k="clients"><span class="dot"></span>检测中</span></li>
+        <li><span>Web 工作流</span><span class="chip idle" data-k="web"><span class="dot"></span>检测中</span></li>
+        <li><span>产物类型</span><span class="chip ok"><span class="dot"></span>APK/桌面包/IPA</span></li>
+      </ul>
+      <button class="btn ghost" id="recheck">重新检测</button>
+    </div>
+    <div class="card">
+      <div class="title">判断</div>
+      <div class="muted" id="verdict">
+        GitHub Actions 的 macOS/Windows/Linux runner 均可构建三端；
+        iOS 使用免签名 IPA，满足巨魔安装，不依赖开发者账号。
+      </div>
+    </div>
+  </section>
+
+  <footer>造梦空间 Build Console · 本地预览版</footer>
+</div>
+<script>
+(function(){
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      tabs.forEach(function(x){x.classList.remove('active')});
+      t.classList.add('active');
+      ['builds','install','check'].forEach(function(id){
+        var el = document.getElementById('tab-'+id);
+        if (el) el.classList.toggle('hidden', id !== t.dataset.tab);
+      });
+    });
+  });
+
+  function tick(){
+    var d = new Date();
+    var el = document.getElementById('clock');
+    if (el) el.textContent = d.toLocaleTimeString();
+    var p = document.getElementById('progress');
+    if (p) {
+      var w = 18 + (d.getSeconds() % 5) * 12;
+      p.style.width = Math.min(w, 92) + '%';
+    }
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  function setChip(key, cls, text){
+    var node = document.querySelector('[data-k="'+key+'"]');
+    if (!node) return;
+    node.className = 'chip ' + cls;
+    node.innerHTML = '<span class="dot"></span>' + text;
+  }
+
+  function check(){
+    setChip('repo','warn','检测中');
+    setChip('clients','idle','检测中');
+    setChip('web','idle','检测中');
+    fetch('https://api.github.com/repos/banshengci/zaomengkongjian')
+      .then(function(r){
+        if (!r.ok) throw new Error('repo');
+        return r.json();
+      })
+      .then(function(){
+        setChip('repo','ok','正常');
+        return fetch('https://api.github.com/repos/banshengci/zaomengkongjian/actions/workflows');
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var names = (data.workflows || []).map(function(w){ return (w.path || w.name || '').toLowerCase(); });
+        setChip('clients', names.join(' ').indexOf('clients') >= 0 ? 'ok' : 'warn', names.join(' ').indexOf('clients') >= 0 ? '已启用' : '待推送');
+        setChip('web', names.join(' ').indexOf('web') >= 0 ? 'ok' : 'warn', names.join(' ').indexOf('web') >= 0 ? '已启用' : '待推送');
+      })
+      .catch(function(){
+        setChip('repo','warn','离线/匿名');
+        setChip('clients','warn','需登录 GitHub');
+        setChip('web','warn','需登录 GitHub');
+      });
+  }
+  check();
+  var btn = document.getElementById('recheck');
+  if (btn) btn.addEventListener('click', check);
+})();
+</script>
+</body>
+</html>
