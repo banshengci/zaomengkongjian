@@ -9,6 +9,10 @@ DATASTORE = (
     ROOT
     / "data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/preferences/CreateDataStore.ios.kt"
 )
+BACKEND = (
+    ROOT
+    / "server/src/commonMain/kotlin/top/wkbin/zaomeng/backend/LocalBackendController.kt"
+)
 
 STREAMING_BODY = r'''package top.wkbin.zaomeng.data.api
 
@@ -99,6 +103,30 @@ def ensure_optin(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_backend(path: Path) -> None:
+    """commonMain 不能用 JVM @Volatile / synchronized。"""
+    if not path.exists():
+        print("skip backend, not found")
+        return
+    t = path.read_text(encoding="utf-8")
+    t = t.replace("@Volatile\n", "")
+    t = t.replace(
+        """        if (started) return
+        synchronized(this) {
+            if (started) return
+            started = true
+        }
+""",
+        """        if (started) return
+        started = true
+""",
+    )
+    # 兼容其它缩进
+    t = t.replace("synchronized(this) {", "run {")
+    path.write_text(t, encoding="utf-8")
+    print("patched backend", path)
+
+
 def main() -> None:
     STREAMING.parent.mkdir(parents=True, exist_ok=True)
     STREAMING.write_text(STREAMING_BODY, encoding="utf-8")
@@ -108,6 +136,7 @@ def main() -> None:
         print("patched opt-in", DATASTORE)
     else:
         print("skip datastore, not found")
+    patch_backend(BACKEND)
 
 
 if __name__ == "__main__":
