@@ -12,6 +12,10 @@ RUN_DETAIL = (
     ROOT
     / "feature/rundetail/src/commonMain/kotlin/top/wkbin/zaomeng/feature/rundetail/RunDetailScreen.kt"
 )
+MODEL_SETTINGS = (
+    ROOT
+    / "feature/settings/src/commonMain/kotlin/top/wkbin/zaomeng/feature/settings/ModelSettingsScreen.kt"
+)
 UI_IOS = ROOT / "ui/shared/src/iosMain"
 
 STREAMING_BODY = r'''package top.wkbin.zaomeng.data.api
@@ -237,6 +241,34 @@ def patch_run_detail(path: Path) -> None:
     print("patched run_detail", path)
 
 
+def patch_jvm_apis(root: Path) -> None:
+    """commonMain 禁用 JVM 专有 API：String.format / androidx.compose.ui.res / @Volatile / synchronized。"""
+    for p in root.rglob("commonMain/**/*.kt"):
+        t = p.read_text(encoding="utf-8")
+        orig = t
+        t = t.replace("import androidx.compose.ui.res.painterResource", "import org.jetbrains.compose.resources.painterResource")
+        t = t.replace("import androidx.compose.ui.res.stringResource", "import org.jetbrains.compose.resources.stringResource")
+        t = t.replace("@Volatile\n", "")
+        t = t.replace("synchronized(this) {", "run {")
+        # "%.1f X".format(...) → 模板
+        t = t.replace('add("%.1f MB".format(source.byteSize / (1024.0 * 1024.0)))',
+                      'add("${source.byteSize / (1024.0 * 1024.0)} MB")')
+        t = t.replace('add("%.1f KB".format(source.byteSize / 1024.0))',
+                      'add("${source.byteSize / 1024.0} KB")')
+        # 通用 "..." .format(...) 兜底（跳过含 % 的格式串，避免误伤）
+        import re as _re
+
+        def _fmt_repl(m: _re.Match[str]) -> str:
+            if "%" in m.group(1):
+                return m.group(0)
+            return f'"{m.group(1)}" + ({m.group(2)}).toString()'
+
+        t = _re.sub(r'"([^"]*)"\.format\(([^)]+)\)', _fmt_repl, t)
+        if t != orig:
+            p.write_text(t, encoding="utf-8")
+            print("patched jvm-apis", p.relative_to(root))
+
+
 def main() -> None:
     STREAMING.parent.mkdir(parents=True, exist_ok=True)
     STREAMING.write_text(STREAMING_BODY, encoding="utf-8")
@@ -247,6 +279,9 @@ def main() -> None:
 
     patch_backend(BACKEND)
     patch_run_detail(RUN_DETAIL)
+    if MODEL_SETTINGS.exists():
+        ensure_optin(MODEL_SETTINGS)
+    patch_jvm_apis(ROOT)
 
     # 覆盖 ui/shared iosMain：删掉 UIKit 相关实现，换成可编译 stub
     if UI_IOS.exists():
