@@ -1,18 +1,64 @@
-"""CI 修补：让 wkbin/zaomeng 的 iosMain 在命令行下可编译（产出 TrollStore IPA）。"""
+"""CI 修补：wkbin/zaomeng iosMain 在命令行可编译，用于 TrollStore IPA。"""
 
 from pathlib import Path
 
 ROOT = Path("upstream/zaomeng/kmp")
+OPTIN = "@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)\n"
 
 STREAMING = ROOT / "data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/api/StreamingHttp.ios.kt"
-DATASTORE = (
-    ROOT
-    / "data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/preferences/CreateDataStore.ios.kt"
-)
-BACKEND = (
-    ROOT
-    / "server/src/commonMain/kotlin/top/wkbin/zaomeng/backend/LocalBackendController.kt"
-)
+DATASTORE = ROOT / "data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/preferences/CreateDataStore.ios.kt"
+BACKEND = ROOT / "server/src/commonMain/kotlin/top/wkbin/zaomeng/backend/LocalBackendController.kt"
+UI_SHARED_BUILD = ROOT / "ui/shared/build.gradle.kts"
+TTS = ROOT / "ui/shared/src/iosMain/kotlin/top/wkbin/zaomeng/platform/PlatformTts.ios.kt"
+
+TTS_STUB = r'''package top.wkbin.zaomeng.platform
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** CI stub: avoid AVSpeech delegate overload clash on Kotlin/Native. */
+internal class IosPlatformTts : PlatformTts {
+    private val _isSpeaking = MutableStateFlow(false)
+    override val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+    private val _currentSpeakingId = MutableStateFlow<String?>(null)
+    override val currentSpeakingId: StateFlow<String?> = _currentSpeakingId.asStateFlow()
+
+    override fun speak(
+        id: String,
+        text: String,
+        pitch: Float,
+        speed: Float,
+        voiceName: String,
+    ) {
+        _isSpeaking.value = false
+        _currentSpeakingId.value = null
+    }
+
+    override fun stop() {
+        _isSpeaking.value = false
+        _currentSpeakingId.value = null
+    }
+
+    override fun shutdown() {
+        stop()
+    }
+}
+
+@Composable
+actual fun rememberPlatformTts(): PlatformTts {
+    val platformTts = remember { IosPlatformTts() }
+    DisposableEffect(Unit) {
+        onDispose {
+            platformTts.stop()
+        }
+    }
+    return platformTts
+}
+'''
 
 STREAMING_BODY = r'''package top.wkbin.zaomeng.data.api
 
@@ -35,10 +81,6 @@ import okio.Source
 import okio.Timeout
 import okio.buffer
 
-/**
- * iOS SSE 流式读取：Darwin 引擎（NSURLSession delegate）支持分块下发，
- * 用 preparePost + bodyAsChannel 拿 ByteReadChannel，再桥接成 okio.BufferedSource。
- */
 private val darwinStreamingClient: HttpClient by lazy {
     HttpClient(Darwin) {
         expectSuccess = false
@@ -63,7 +105,6 @@ actual fun openStreamingResponse(url: String, jsonBody: String, token: String): 
     return ByteReadChannelSource(channel).buffer()
 }
 
-/** 把 Ktor 的 ByteReadChannel 桥接为 okio.Source（阻塞读取，调用方应在后台线程使用）。 */
 private class ByteReadChannelSource(
     private val channel: ByteReadChannel,
 ) : Source {
@@ -91,22 +132,16 @@ def ensure_optin(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     if "ExperimentalForeignApi" in text:
         return
-    header = (
-        "@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)\n"
-    )
     if text.startswith("package "):
-        # insert before package
         idx = text.find("package ")
-        text = text[:idx] + header + text[idx:]
+        text = text[:idx] + OPTIN + text[idx:]
     else:
-        text = header + text
+        text = OPTIN + text
     path.write_text(text, encoding="utf-8")
 
 
 def patch_backend(path: Path) -> None:
-    """commonMain 不能用 JVM @Volatile / synchronized。"""
     if not path.exists():
-        print("skip backend, not found")
         return
     t = path.read_text(encoding="utf-8")
     t = t.replace("@Volatile\n", "")
@@ -121,22 +156,74 @@ def patch_backend(path: Path) -> None:
         started = true
 """,
     )
-    # 兼容其它缩进
     t = t.replace("synchronized(this) {", "run {")
     path.write_text(t, encoding="utf-8")
-    print("patched backend", path)
+
+
+def patch_text_decoding(path: Path) -> None:
+    if not path.exists():
+        return
+    t = path.read_text(encoding="utf-8")
+    if "usePinned" not in t.split("actual")[0]:
+        t = t.replace(
+            "import platform.Foundation.create",
+            "import kotlinx.cinterop.addressOf\nimport kotlinx.cinterop.usePinned\nimport platform.Foundation.create",
+        )
+    path.write_text(t, encoding="utf-8")
+
+
+def patch_image_loader(path: Path) -> None:
+    if not path.exists():
+        return
+    t = path.read_text(encoding="utf-8")
+    t = t.replace("readByteArray()", "readByteArray")
+    t = t.replace(".read {", ".readByteArray()")
+    path.write_text(t, encoding="utf-8")
+
+
+def patch_gradle_optin(path: Path) -> None:
+    if not path.exists():
+        return
+    t = path.read_text(encoding="utf-8")
+    if "ExperimentalForeignApi" in t:
+        return
+    t += """
+
+// CI patch: allow cinterop APIs without per-file OptIn noise
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+    compilerOptions.optIn.add("kotlinx.cinterop.ExperimentalForeignApi")
+}
+"""
+    path.write_text(t, encoding="utf-8")
 
 
 def main() -> None:
     STREAMING.parent.mkdir(parents=True, exist_ok=True)
     STREAMING.write_text(STREAMING_BODY, encoding="utf-8")
     print("wrote", STREAMING)
+
     if DATASTORE.exists():
         ensure_optin(DATASTORE)
-        print("patched opt-in", DATASTORE)
-    else:
-        print("skip datastore, not found")
+
     patch_backend(BACKEND)
+
+    ui_ios = ROOT / "ui/shared/src/iosMain"
+    if ui_ios.exists():
+        for p in ui_ios.rglob("*.kt"):
+            ensure_optin(p)
+        patch_text_decoding(ui_ios / "kotlin/top/wkbin/zaomeng/platform/TextDecoding.ios.kt")
+        patch_image_loader(ui_ios / "kotlin/top/wkbin/zaomeng/platform/PlatformImageLoader.ios.kt")
+
+    # 所有 iosMain 都加 opt-in
+    for p in ROOT.rglob("iosMain/**/*.kt"):
+        ensure_optin(p)
+
+    if TTS.exists():
+        TTS.write_text(TTS_STUB, encoding="utf-8")
+        print("stubbed TTS", TTS)
+
+    patch_gradle_optin(UI_SHARED_BUILD)
+    print("patch done")
 
 
 if __name__ == "__main__":
