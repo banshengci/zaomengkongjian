@@ -16,7 +16,8 @@ MODEL_SETTINGS = (
     ROOT
     / "feature/settings/src/commonMain/kotlin/top/wkbin/zaomeng/feature/settings/ModelSettingsScreen.kt"
 )
-MAIN_VC = ROOT / "app/shared/src/iosMain/kotlin/top/wkbin/zaomeng/app/shared/MainViewController.ios.kt"
+MAIN_VC = ROOT / "app/shared/src/iosMain/kotlin/top/wkbin/zaomeng/app/shared/MainViewController.kt"
+MAIN_VC_IOS = ROOT / "app/shared/src/iosMain/kotlin/top/wkbin/zaomeng/app/shared/MainViewController.ios.kt"
 NAV_HOST = ROOT / "app/shared/src/commonMain/kotlin/top/wkbin/zaomeng/navigation/ZaomengNavHost.kt"
 LIBS_TOML = ROOT / "gradle/libs.versions.toml"
 GRADLE_PROPS = ROOT / "gradle.properties"
@@ -373,8 +374,10 @@ def main() -> None:
     if MODEL_SETTINGS.exists():
         ensure_optin(MODEL_SETTINGS)
     if MAIN_VC.parent.exists():
+        if MAIN_VC_IOS.exists():
+            MAIN_VC_IOS.unlink()
         MAIN_VC.write_text(MAIN_VC_STUB, encoding="utf-8")
-        print("stubbed MainViewController")
+        print("stubbed MainViewController (MainViewController.kt for Swift MainViewControllerKt)")
     patch_navigationevent(ROOT)
     patch_gradle_memory(ROOT)
     patch_jvm_apis(ROOT)
