@@ -103,21 +103,36 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build shared framework
         working-directory: upstream/zaomeng/kmp
+        env:
+          XCODE_CONFIGURATION: Release
+          XCODE_SDK_NAME: iphoneos
+          XCODE_PLATFORM_NAME: iphoneos
+          XCODE_ARCHS: arm64
+          XCODE_EFFECTIVE_ARCHS: arm64
+          XCODE_PRODUCT_BUILD_VERSION: "226"
         run: |
-          ./gradlew :app:shared:embedAndSignAppleFrameworkForXcode \
-            --no-daemon --stacktrace --console=plain \
+          set -e
+          ./gradlew :app:shared:linkReleaseFrameworkIosArm64 --no-daemon --stacktrace --console=plain \
             -PXCODE_CONFIGURATION=Release \
             -PXCODE_SDK_NAME=iphoneos \
             -PXCODE_PLATFORM_NAME=iphoneos \
-            || ./gradlew :app:shared:linkReleaseFrameworkIosArm64 --no-daemon --stacktrace
+            -PXCODE_ARCHS=arm64 \
+            -PXCODE_EFFECTIVE_ARCHS=arm64
+          mkdir -p app/shared/build/xcode-frameworks/Release/iphoneos
+          find app/shared/build -name "*.framework" -type d | head -5
+          FW=$(find app/shared/build -type d -name "shared.framework" | head -1)
+          if [ -n "$FW" ]; then cp -R "$FW" app/shared/build/xcode-frameworks/Release/iphoneos/; fi
       - name: Xcode build unsigned .app
         working-directory: upstream/zaomeng/kmp/iosApp
         run: |
           xcodebuild -project iosApp.xcodeproj -scheme iosApp \
             -configuration Release -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -IDEBuildOperationMaxNumberOfConcurrentCompileTasks=2 \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
+            ONLY_ACTIVE_ARCH=NO ARCHS=arm64 \
+            FRAMEWORK_SEARCH_PATHS="$(PWD)/../app/shared/build/xcode-frameworks/Release/iphoneos" \
             build
       - name: Package IPA (no signing, TrollStore)
         run: |
