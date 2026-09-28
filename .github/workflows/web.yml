@@ -21,24 +21,19 @@ jobs:
       DREAMSPACE_SYNC_DISTILL: "1"
     steps:
       - uses: actions/checkout@v4
+      - name: Clone zaomeng skill
+        run: git clone --depth 1 https://github.com/wkbin/zaomeng zaomeng
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
       - name: Test API
         working-directory: services/api
         run: |
-          source $HOME/.local/bin/env
           uv sync --extra dev
           uv run ruff check .
-          uv run pytest tests -q
-      - name: Clone zaomeng skill for contract tests
-        run: git clone --depth 1 https://github.com/wkbin/zaomeng zaomeng || true
-      - name: Contract tests with skill
-        working-directory: services/api
-        run: |
-          source $HOME/.local/bin/env
           uv run pytest tests -q
 
   web:
@@ -55,10 +50,12 @@ jobs:
           npm ci || npm install
           npx tsc --noEmit
           npm run build
+          ls -la
+          test -d .next
       - uses: actions/upload-artifact@v4
         with:
           name: web-next-build
-          path: apps/web/.next
+          path: apps/web/.next/
           if-no-files-found: error
 
   docker:
