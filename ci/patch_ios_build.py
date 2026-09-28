@@ -1,4 +1,4 @@
-"""CI 修补：wkbin/zaomeng iosMain 在命令行可编译，用于 TrollStore IPA。"""
+"""CI 修补：wkbin/zaomeng iosMain 可编译，用于 TrollStore IPA。"""
 
 from pathlib import Path
 
@@ -8,57 +8,7 @@ OPTIN = "@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)\n"
 STREAMING = ROOT / "data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/api/StreamingHttp.ios.kt"
 DATASTORE = ROOT / "data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/preferences/CreateDataStore.ios.kt"
 BACKEND = ROOT / "server/src/commonMain/kotlin/top/wkbin/zaomeng/backend/LocalBackendController.kt"
-UI_SHARED_BUILD = ROOT / "ui/shared/build.gradle.kts"
-TTS = ROOT / "ui/shared/src/iosMain/kotlin/top/wkbin/zaomeng/platform/PlatformTts.ios.kt"
-
-TTS_STUB = r'''package top.wkbin.zaomeng.platform
-
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-
-/** CI stub: avoid AVSpeech delegate overload clash on Kotlin/Native. */
-internal class IosPlatformTts : PlatformTts {
-    private val _isSpeaking = MutableStateFlow(false)
-    override val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
-    private val _currentSpeakingId = MutableStateFlow<String?>(null)
-    override val currentSpeakingId: StateFlow<String?> = _currentSpeakingId.asStateFlow()
-
-    override fun speak(
-        id: String,
-        text: String,
-        pitch: Float,
-        speed: Float,
-        voiceName: String,
-    ) {
-        _isSpeaking.value = false
-        _currentSpeakingId.value = null
-    }
-
-    override fun stop() {
-        _isSpeaking.value = false
-        _currentSpeakingId.value = null
-    }
-
-    override fun shutdown() {
-        stop()
-    }
-}
-
-@Composable
-actual fun rememberPlatformTts(): PlatformTts {
-    val platformTts = remember { IosPlatformTts() }
-    DisposableEffect(Unit) {
-        onDispose {
-            platformTts.stop()
-        }
-    }
-    return platformTts
-}
-'''
+UI_IOS = ROOT / "ui/shared/src/iosMain"
 
 STREAMING_BODY = r'''package top.wkbin.zaomeng.data.api
 
@@ -127,6 +77,107 @@ private class ByteReadChannelSource(
 }
 '''
 
+UI_PLATFORM_STUB = r'''package top.wkbin.zaomeng.platform
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+actual fun cropAvatarBytes(bytes: ByteArray, side: Int, left: Int, top: Int): ByteArray = bytes
+
+actual fun backHandlingToggleSupported(): Boolean = false
+
+@Composable
+actual fun rememberClipboardTextWriter(): suspend (String) -> Unit = {}
+
+@Composable
+actual fun rememberOpenExternalUrl(): (String) -> Unit = {}
+
+@Composable
+actual fun rememberNotificationPermissionRequester(onResult: (Boolean) -> Unit): () -> Unit = {
+    onResult(false)
+}
+
+@Composable
+actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
+}
+
+@Composable
+actual fun rememberPlatformImage(uri: String): ImageBitmap? = null
+
+@Composable
+actual fun rememberShareText(): (String) -> Unit = {}
+
+actual fun decodeGb18030Strict(bytes: ByteArray): String? = bytes.decodeToString()
+
+actual fun readZipFileEntries(bytes: ByteArray): List<ZipFileEntryData> = emptyList()
+
+internal class IosPlatformTts : PlatformTts {
+    private val _isSpeaking = MutableStateFlow(false)
+    override val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+    private val _currentSpeakingId = MutableStateFlow<String?>(null)
+    override val currentSpeakingId: StateFlow<String?> = _currentSpeakingId.asStateFlow()
+
+    override fun speak(
+        id: String,
+        text: String,
+        pitch: Float,
+        speed: Float,
+        voiceName: String,
+    ) {
+        _isSpeaking.value = false
+        _currentSpeakingId.value = null
+    }
+
+    override fun stop() {
+        _isSpeaking.value = false
+        _currentSpeakingId.value = null
+    }
+
+    override fun shutdown() {
+        stop()
+    }
+}
+
+@Composable
+actual fun rememberPlatformTts(): PlatformTts {
+    val platformTts = remember { IosPlatformTts() }
+    DisposableEffect(Unit) {
+        onDispose { platformTts.stop() }
+    }
+    return platformTts
+}
+'''
+
+UI_GRAPHICS_STUB = r'''package top.wkbin.zaomeng.ui.graphics
+
+import androidx.compose.ui.graphics.ImageBitmap
+
+actual fun decodeImageBitmap(bytes: ByteArray): ImageBitmap? = null
+'''
+
+UI_THEME_STUB = r'''package top.wkbin.zaomeng.ui.theme
+
+import androidx.compose.material3.ColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+
+@Composable
+actual fun platformColorScheme(
+    darkTheme: Boolean,
+    dynamicColor: Boolean,
+    seedColorArgb: Long,
+): ColorScheme? = null
+
+@Composable
+actual fun applySystemBars(darkTheme: Boolean, windowBackground: Color) {
+}
+'''
+
 
 def ensure_optin(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
@@ -160,69 +211,32 @@ def patch_backend(path: Path) -> None:
     path.write_text(t, encoding="utf-8")
 
 
-def patch_text_decoding(path: Path) -> None:
-    if not path.exists():
-        return
-    t = path.read_text(encoding="utf-8")
-    if "usePinned" not in t.split("actual")[0]:
-        t = t.replace(
-            "import platform.Foundation.create",
-            "import kotlinx.cinterop.addressOf\nimport kotlinx.cinterop.usePinned\nimport platform.Foundation.create",
-        )
-    path.write_text(t, encoding="utf-8")
-
-
-def patch_image_loader(path: Path) -> None:
-    if not path.exists():
-        return
-    t = path.read_text(encoding="utf-8")
-    t = t.replace("readByteArray()", "readByteArray")
-    t = t.replace(".read {", ".readByteArray()")
-    path.write_text(t, encoding="utf-8")
-
-
-def patch_gradle_optin(path: Path) -> None:
-    if not path.exists():
-        return
-    t = path.read_text(encoding="utf-8")
-    if "ExperimentalForeignApi" in t:
-        return
-    t += """
-
-// CI patch: allow cinterop APIs without per-file OptIn noise
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
-    compilerOptions.optIn.add("kotlinx.cinterop.ExperimentalForeignApi")
-}
-"""
-    path.write_text(t, encoding="utf-8")
-
-
 def main() -> None:
     STREAMING.parent.mkdir(parents=True, exist_ok=True)
     STREAMING.write_text(STREAMING_BODY, encoding="utf-8")
-    print("wrote", STREAMING)
+    print("wrote streaming")
 
     if DATASTORE.exists():
         ensure_optin(DATASTORE)
 
     patch_backend(BACKEND)
 
-    ui_ios = ROOT / "ui/shared/src/iosMain"
-    if ui_ios.exists():
-        for p in ui_ios.rglob("*.kt"):
-            ensure_optin(p)
-        patch_text_decoding(ui_ios / "kotlin/top/wkbin/zaomeng/platform/TextDecoding.ios.kt")
-        patch_image_loader(ui_ios / "kotlin/top/wkbin/zaomeng/platform/PlatformImageLoader.ios.kt")
+    # 覆盖 ui/shared iosMain：删掉 UIKit 相关实现，换成可编译 stub
+    if UI_IOS.exists():
+        for p in UI_IOS.rglob("*.kt"):
+            p.unlink()
+        pkg = UI_IOS / "kotlin/top/wkbin/zaomeng"
+        (pkg / "platform").mkdir(parents=True, exist_ok=True)
+        (pkg / "ui/graphics").mkdir(parents=True, exist_ok=True)
+        (pkg / "ui/theme").mkdir(parents=True, exist_ok=True)
+        (pkg / "platform/Stubs.ios.kt").write_text(UI_PLATFORM_STUB, encoding="utf-8")
+        (pkg / "ui/graphics/ImageDecoding.ios.kt").write_text(UI_GRAPHICS_STUB, encoding="utf-8")
+        (pkg / "ui/theme/PlatformTheme.ios.kt").write_text(UI_THEME_STUB, encoding="utf-8")
+        print("replaced ui/shared iosMain with stubs")
 
-    # 所有 iosMain 都加 opt-in
     for p in ROOT.rglob("iosMain/**/*.kt"):
         ensure_optin(p)
 
-    if TTS.exists():
-        TTS.write_text(TTS_STUB, encoding="utf-8")
-        print("stubbed TTS", TTS)
-
-    patch_gradle_optin(UI_SHARED_BUILD)
     print("patch done")
 
 
