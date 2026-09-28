@@ -8,6 +8,10 @@ OPTIN = "@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)\n"
 STREAMING = ROOT / "data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/api/StreamingHttp.ios.kt"
 DATASTORE = ROOT / "data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/preferences/CreateDataStore.ios.kt"
 BACKEND = ROOT / "server/src/commonMain/kotlin/top/wkbin/zaomeng/backend/LocalBackendController.kt"
+RUN_DETAIL = (
+    ROOT
+    / "feature/rundetail/src/commonMain/kotlin/top/wkbin/zaomeng/feature/rundetail/RunDetailScreen.kt"
+)
 UI_IOS = ROOT / "ui/shared/src/iosMain"
 
 STREAMING_BODY = r'''package top.wkbin.zaomeng.data.api
@@ -214,6 +218,25 @@ def patch_backend(path: Path) -> None:
     path.write_text(t, encoding="utf-8")
 
 
+def patch_run_detail(path: Path) -> None:
+    """commonMain 不能用 JVM 的 String.format 扩展。"""
+    if not path.exists():
+        return
+    t = path.read_text(encoding="utf-8")
+    t = t.replace(
+        'add("%.1f MB".format(source.byteSize / (1024.0 * 1024.0)))',
+        'add("${(source.byteSize / (1024.0 * 1024.0)).toString().let { if (it.contains(".")) it.take(it.indexOf(".") + 2) else it }} MB")',
+    )
+    t = t.replace(
+        'add("%.1f KB".format(source.byteSize / 1024.0))',
+        'add("${(source.byteSize / 1024.0).toString().let { if (it.contains(".")) it.take(it.indexOf(".") + 2) else it }} KB")',
+    )
+    # 兜底：其它 .format( 调用改为模板
+    t = t.replace('".format(', '" + (')
+    path.write_text(t, encoding="utf-8")
+    print("patched run_detail", path)
+
+
 def main() -> None:
     STREAMING.parent.mkdir(parents=True, exist_ok=True)
     STREAMING.write_text(STREAMING_BODY, encoding="utf-8")
@@ -223,6 +246,7 @@ def main() -> None:
         ensure_optin(DATASTORE)
 
     patch_backend(BACKEND)
+    patch_run_detail(RUN_DETAIL)
 
     # 覆盖 ui/shared iosMain：删掉 UIKit 相关实现，换成可编译 stub
     if UI_IOS.exists():
