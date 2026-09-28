@@ -101,6 +101,20 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Patch upstream iOS contentType
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/zaomeng/kmp/data/remote/src/iosMain/kotlin/top/wkbin/zaomeng/data/api/StreamingHttp.ios.kt")
+          t = p.read_text(encoding="utf-8")
+          t = t.replace("import io.ktor.client.request.contentType\n", "")
+          t = t.replace(
+              "contentType(ContentType.Application.Json)",
+              "header(HttpHeaders.ContentType, ContentType.Application.Json.toString())",
+          )
+          p.write_text(t, encoding="utf-8")
+          print("patched", p)
+          PY
       - name: Build shared framework
         working-directory: upstream/zaomeng/kmp
         env:
