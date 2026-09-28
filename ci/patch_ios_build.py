@@ -16,7 +16,32 @@ MODEL_SETTINGS = (
     ROOT
     / "feature/settings/src/commonMain/kotlin/top/wkbin/zaomeng/feature/settings/ModelSettingsScreen.kt"
 )
+MAIN_VC = ROOT / "app/shared/src/iosMain/kotlin/top/wkbin/zaomeng/app/shared/MainViewController.ios.kt"
 UI_IOS = ROOT / "ui/shared/src/iosMain"
+
+MAIN_VC_STUB = r'''package top.wkbin.zaomeng.app.shared
+
+import androidx.compose.ui.window.ComposeUIViewController
+import org.koin.core.context.startKoin
+import platform.UIKit.UIViewController
+import top.wkbin.zaomeng.data.preferences.ThemeMode
+import top.wkbin.zaomeng.data.preferences.UI_SCALE_DEFAULT
+import top.wkbin.zaomeng.di.IosAppPlatform
+import top.wkbin.zaomeng.di.sharedAppModules
+
+/** iOS 入口（CI stub）：不依赖 GlobalContext/currentPreferences。 */
+fun MainViewController(): UIViewController {
+    startKoin { modules(sharedAppModules(IosAppPlatform)) }
+    return ComposeUIViewController {
+        App(
+            initialThemeMode = ThemeMode.SYSTEM,
+            initialThemeSeedColorArgb = 0L,
+            initialDynamicColorEnabled = false,
+            initialUiScale = UI_SCALE_DEFAULT,
+        )
+    }
+}
+'''
 
 STREAMING_BODY = r'''package top.wkbin.zaomeng.data.api
 
@@ -281,6 +306,9 @@ def main() -> None:
     patch_run_detail(RUN_DETAIL)
     if MODEL_SETTINGS.exists():
         ensure_optin(MODEL_SETTINGS)
+    if MAIN_VC.parent.exists():
+        MAIN_VC.write_text(MAIN_VC_STUB, encoding="utf-8")
+        print("stubbed MainViewController")
     patch_jvm_apis(ROOT)
 
     # 覆盖 ui/shared iosMain：删掉 UIKit 相关实现，换成可编译 stub
