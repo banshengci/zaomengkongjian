@@ -19,6 +19,7 @@ MODEL_SETTINGS = (
 MAIN_VC = ROOT / "app/shared/src/iosMain/kotlin/top/wkbin/zaomeng/app/shared/MainViewController.ios.kt"
 NAV_HOST = ROOT / "app/shared/src/commonMain/kotlin/top/wkbin/zaomeng/navigation/ZaomengNavHost.kt"
 LIBS_TOML = ROOT / "gradle/libs.versions.toml"
+GRADLE_PROPS = ROOT / "gradle.properties"
 UI_IOS = ROOT / "ui/shared/src/iosMain"
 
 MAIN_VC_STUB = r'''package top.wkbin.zaomeng.app.shared
@@ -341,6 +342,24 @@ def patch_navigationevent(root: Path) -> None:
     print("patched navigationevent usage")
 
 
+def patch_gradle_memory(root: Path) -> None:
+    """iOS 链接阶段 OOM：把 Gradle 堆调到 6G。"""
+    props = root / "gradle.properties"
+    if not props.exists():
+        return
+    t = props.read_text(encoding="utf-8")
+    t = t.replace(
+        "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8",
+        "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8",
+    )
+    if "kotlin.daemon.jvmargs" not in t:
+        t += "\nkotlin.daemon.jvmargs=-Xmx6g\n"
+    if "kotlin.native.cacheKind" not in t:
+        t += "kotlin.native.cacheKind=none\n"
+    props.write_text(t, encoding="utf-8")
+    print("patched gradle memory")
+
+
 def main() -> None:
     STREAMING.parent.mkdir(parents=True, exist_ok=True)
     STREAMING.write_text(STREAMING_BODY, encoding="utf-8")
@@ -357,6 +376,7 @@ def main() -> None:
         MAIN_VC.write_text(MAIN_VC_STUB, encoding="utf-8")
         print("stubbed MainViewController")
     patch_navigationevent(ROOT)
+    patch_gradle_memory(ROOT)
     patch_jvm_apis(ROOT)
 
     # 覆盖 ui/shared iosMain：删掉 UIKit 相关实现，换成可编译 stub
