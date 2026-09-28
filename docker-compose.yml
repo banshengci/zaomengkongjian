@@ -1,0 +1,31 @@
+services:
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DREAMSPACE_DATA_DIR: /data
+      DREAMSPACE_ZAOMENG_SKILL_ROOT: /opt/zaomeng/zaomeng-skill
+      DREAMSPACE_LLM_BASE_URL: ${DREAMSPACE_LLM_BASE_URL:-}
+      DREAMSPACE_LLM_API_KEY: ${DREAMSPACE_LLM_API_KEY:-}
+      DREAMSPACE_LLM_MODEL: ${DREAMSPACE_LLM_MODEL:-}
+    volumes:
+      - dreamspace-data:/data
+      - ./zaomeng/zaomeng-skill:/opt/zaomeng/zaomeng-skill:ro
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DREAMSPACE_API: http://api:8000
+      NEXT_PUBLIC_DREAMSPACE_API: http://127.0.0.1:8000/api/v1
+    depends_on:
+      - api
+
+volumes:
+  dreamspace-data:

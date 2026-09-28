@@ -1,0 +1,50 @@
+[project]
+name = "dreamspace-api"
+version = "0.1.0"
+description = "造梦空间 API — 建立在造梦人物智能之上的故事剧场服务"
+readme = "README.md"
+authors = [
+    { name = "banshengci", email = "105139311+2113024546@users.noreply.github.com" }
+]
+requires-python = "==3.12.*"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.12",
+    "sqlalchemy>=2.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "pyright[nodejs]>=1.1.390",
+]
+
+[project.scripts]
+dreamspace-api = "app.main:run"
+
+[build-system]
+requires = ["uv_build>=0.12.8,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = "app"
+
+[tool.ruff.lint]
+extend-select = [
+    "UP",
+    "I",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

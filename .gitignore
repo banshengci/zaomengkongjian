@@ -1,83 +1,30 @@
-# Python bytecode/cache
+# 造梦空间
+
+# Python
+.venv/
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-
-# Python packaging and test artifacts
-build/
-dist/
-*.egg-info/
-.coverage
-.coverage.*
-coverage.xml
-htmlcov/
-.hypothesis/
-.nox/
-.tox/
-
-# Virtual environments
-venv/
-.venv/
-env/
-
-# Tooling/cache
-.codegraph/
 .pytest_cache/
-.mypy_cache/
 .ruff_cache/
-.pyre/
-.pytype/
-.zaomeng-web/
+*.egg-info/
 
-# OS/editor
+# Node / Next
+node_modules/
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# 运行数据
+data/
+*.db
+.env
+
+# 外部造梦克隆（请本地执行 git clone https://github.com/wkbin/zaomeng）
+zaomeng/
+
+# 临时脚本
+_e2e_*.py
+
+# 系统
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
-.claude/
-*.swp
-*.swo
-*~
-
-# Local runtime/config artifacts
-config.yaml
-.env
-.env.*
-!.env.example
-*.log
-*.sqlite
-*.sqlite3
-*.db
-*.pid
-data/*
-!data/characters/
-!data/relations/
-!data/sessions/
-!data/corrections/
-data/characters/*
-data/relations/*
-data/sessions/*
-data/corrections/*
-!data/characters/.gitkeep
-!data/relations/.gitkeep
-!data/sessions/.gitkeep
-!data/corrections/.gitkeep
-zaomeng-data/
-logs/
-outputs/
-clawhub-zaomeng-skill/runtime/data/
-.tools/
-
-# Local/generated Android Studio project mirror (contains signing credentials)
-/android/
-
-# IDE/TOOLS
-.trae/
-.reasonix/
-
-# iOS / Xcode
-**/xcuserdata/
-**/*.xcuserstate
-**/DerivedData/
-.DS_Store
