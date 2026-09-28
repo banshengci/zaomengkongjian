@@ -57,6 +57,7 @@ jobs:
           name: web-next-build
           path: apps/web/.next/
           if-no-files-found: error
+          include-hidden-files: true
 
   docker:
     name: Docker images
