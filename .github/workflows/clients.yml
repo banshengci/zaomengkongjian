@@ -139,8 +139,8 @@ jobs:
       - name: Package IPA (no signing, TrollStore)
         run: |
           set -e
-          APP=$(find upstream/zaomeng/kmp/iosApp -type d -name "Zaomeng.app" | head -1)
-          if [ -z "$APP" ]; then APP=$(find upstream/zaomeng/kmp -type d -name "*.app" | head -1); fi
+          APP=$(find "$HOME/Library/Developer/Xcode/DerivedData" -type d -name "Zaomeng.app" 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then APP=$(find upstream -type d -name "*.app" 2>/dev/null | head -1); fi
           echo "APP=$APP"
           test -n "$APP"
           rm -rf Payload
