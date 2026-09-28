@@ -17,6 +17,8 @@ MODEL_SETTINGS = (
     / "feature/settings/src/commonMain/kotlin/top/wkbin/zaomeng/feature/settings/ModelSettingsScreen.kt"
 )
 MAIN_VC = ROOT / "app/shared/src/iosMain/kotlin/top/wkbin/zaomeng/app/shared/MainViewController.ios.kt"
+NAV_HOST = ROOT / "app/shared/src/commonMain/kotlin/top/wkbin/zaomeng/navigation/ZaomengNavHost.kt"
+LIBS_TOML = ROOT / "gradle/libs.versions.toml"
 UI_IOS = ROOT / "ui/shared/src/iosMain"
 
 MAIN_VC_STUB = r'''package top.wkbin.zaomeng.app.shared
@@ -294,6 +296,41 @@ def patch_jvm_apis(root: Path) -> None:
             print("patched jvm-apis", p.relative_to(root))
 
 
+def patch_navigationevent(root: Path) -> None:
+    """绕过 navigationevent-compose 的 IR 重复符号（LocalNavigationEventDispatcherOwner）。"""
+    toml = root / "gradle/libs.versions.toml"
+    if toml.exists():
+        t = toml.read_text(encoding="utf-8")
+        t = t.replace('navigationevent = "1.1.2"', 'navigationevent = "1.0.0"')
+        toml.write_text(t, encoding="utf-8")
+
+    nav = root / "app/shared/src/commonMain/kotlin/top/wkbin/zaomeng/navigation/ZaomengNavHost.kt"
+    if not nav.exists():
+        return
+    t = nav.read_text(encoding="utf-8")
+    t = t.replace(
+        "import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner\n",
+        "",
+    )
+    t = t.replace(
+        "import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner\n",
+        "",
+    )
+    t = t.replace(
+        """    val navEventOwner = rememberNavigationEventDispatcherOwner(
+        enabled = builtInBackHandlingEnabled,
+    )
+""",
+        "",
+    )
+    t = t.replace(
+        "CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides navEventOwner) {",
+        "run {",
+    )
+    nav.write_text(t, encoding="utf-8")
+    print("patched navigationevent usage")
+
+
 def main() -> None:
     STREAMING.parent.mkdir(parents=True, exist_ok=True)
     STREAMING.write_text(STREAMING_BODY, encoding="utf-8")
@@ -309,6 +346,7 @@ def main() -> None:
     if MAIN_VC.parent.exists():
         MAIN_VC.write_text(MAIN_VC_STUB, encoding="utf-8")
         print("stubbed MainViewController")
+    patch_navigationevent(ROOT)
     patch_jvm_apis(ROOT)
 
     # 覆盖 ui/shared iosMain：删掉 UIKit 相关实现，换成可编译 stub
