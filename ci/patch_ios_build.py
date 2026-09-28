@@ -297,12 +297,22 @@ def patch_jvm_apis(root: Path) -> None:
 
 
 def patch_navigationevent(root: Path) -> None:
-    """绕过 navigationevent-compose 的 IR 重复符号（LocalNavigationEventDispatcherOwner）。"""
+    """绕过 navigationevent-compose 的 IR 重复符号：去依赖 + 去用法。"""
     toml = root / "gradle/libs.versions.toml"
     if toml.exists():
         t = toml.read_text(encoding="utf-8")
-        t = t.replace('navigationevent = "1.1.2"', 'navigationevent = "1.0.0"')
+        # 保持 1.1.2（1.0.0 无 iOS 变体），但构建时剔除
+        t = t.replace('navigationevent = "1.0.0"', 'navigationevent = "1.1.2"')
         toml.write_text(t, encoding="utf-8")
+
+    shared = root / "app/shared/build.gradle.kts"
+    if shared.exists():
+        t = shared.read_text(encoding="utf-8")
+        t = t.replace(
+            "implementation(libs.androidx.navigationevent.compose)",
+            "// implementation(libs.androidx.navigationevent.compose) // CI: IR duplicate symbol",
+        )
+        shared.write_text(t, encoding="utf-8")
 
     nav = root / "app/shared/src/commonMain/kotlin/top/wkbin/zaomeng/navigation/ZaomengNavHost.kt"
     if not nav.exists():
