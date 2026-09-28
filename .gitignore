@@ -1,0 +1,30 @@
+# 造梦空间
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / Next
+node_modules/
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# 运行数据
+data/
+*.db
+.env
+
+# 外部造梦克隆（请本地执行 git clone https://github.com/wkbin/zaomeng）
+zaomeng/
+
+# 临时脚本
+_e2e_*.py
+
+# 系统
+.DS_Store
+Thumbs.db
