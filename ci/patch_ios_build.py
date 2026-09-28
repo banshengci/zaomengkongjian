@@ -98,6 +98,9 @@ actual fun rememberClipboardTextWriter(): suspend (String) -> Unit = {}
 actual fun rememberOpenExternalUrl(): (String) -> Unit = {}
 
 @Composable
+actual fun rememberToast(): (String) -> Unit = {}
+
+@Composable
 actual fun rememberNotificationPermissionRequester(onResult: (Boolean) -> Unit): () -> Unit = {
     onResult(false)
 }
